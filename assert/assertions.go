@@ -12,13 +12,13 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-test/deep"
 	"github.com/pmezard/go-difflib/difflib"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -49,11 +49,6 @@ type ErrorAssertionFunc func(TestingT, error, ...interface{}) bool
 // Comparison is a custom function that returns true on success and false on failure
 type Comparison func() (success bool)
 
-func deepEqual(a, b interface{}) bool {
-	out := deep.Equal(a, b, deep.FLAG_IGNORE_SLICE_ORDER)
-	return len(out) == 0
-}
-
 /*
 	Helper functions
 */
@@ -68,7 +63,7 @@ func ObjectsAreEqual(expected, actual interface{}) bool {
 
 	exp, ok := expected.([]byte)
 	if !ok {
-		return deepEqual(expected, actual)
+		return reflect.DeepEqual(expected, actual)
 	}
 
 	act, ok := actual.([]byte)
@@ -95,7 +90,7 @@ func ObjectsAreEqualValues(expected, actual interface{}) bool {
 	expectedValue := reflect.ValueOf(expected)
 	if expectedValue.IsValid() && expectedValue.Type().ConvertibleTo(actualType) {
 		// Attempt comparison after type conversion
-		return deepEqual(expectedValue.Convert(actualType).Interface(), actual)
+		return reflect.DeepEqual(expectedValue.Convert(actualType).Interface(), actual)
 	}
 
 	return false
@@ -358,6 +353,43 @@ func Equal(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) 
 
 }
 
+// Equal asserts that two objects are equal.
+//
+//	assert.Equal(t, 123, 123)
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses). Function equality
+// cannot be determined and will always fail.
+// if the actual response can be sorted do so.
+func EqualWithSort(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
+	if err := validateEqualArgs(expected, actual); err != nil {
+		return Fail(t, fmt.Sprintf("Invalid operation: %#v == %#v (%s)",
+			expected, actual, err), msgAndArgs...)
+	}
+
+	var actualToTest interface{}
+	actualSort, ok := actual.(sort.Interface)
+	if ok {
+		sort.Sort(actualSort)
+		actualToTest = actualSort
+	} else {
+		actualToTest = actual
+	}
+	if !ObjectsAreEqual(expected, actualToTest) {
+		diff := diff(expected, actual)
+		expected, actual = formatUnequalValues(expected, actual)
+		return Fail(t, fmt.Sprintf("Not equal: \n"+
+			"expected: %s\n"+
+			"actual  : %s%s", expected, actual, diff), msgAndArgs...)
+	}
+
+	return true
+
+}
+
 // validateEqualArgs checks whether provided arguments can be safely used in the
 // Equal/NotEqual functions.
 func validateEqualArgs(expected, actual interface{}) error {
@@ -582,7 +614,7 @@ func isEmpty(object interface{}) bool {
 	// array types are empty when they match their zero-initialized state
 	default:
 		zero := reflect.Zero(objValue.Type())
-		return deepEqual(object, zero.Interface())
+		return reflect.DeepEqual(object, zero.Interface())
 	}
 }
 
@@ -1515,7 +1547,7 @@ func Zero(t TestingT, i interface{}, msgAndArgs ...interface{}) bool {
 	if h, ok := t.(tHelper); ok {
 		h.Helper()
 	}
-	if i != nil && !deepEqual(i, reflect.Zero(reflect.TypeOf(i)).Interface()) {
+	if i != nil && !reflect.DeepEqual(i, reflect.Zero(reflect.TypeOf(i)).Interface()) {
 		return Fail(t, fmt.Sprintf("Should be zero, but was %v", i), msgAndArgs...)
 	}
 	return true
@@ -1526,7 +1558,7 @@ func NotZero(t TestingT, i interface{}, msgAndArgs ...interface{}) bool {
 	if h, ok := t.(tHelper); ok {
 		h.Helper()
 	}
-	if i == nil || deepEqual(i, reflect.Zero(reflect.TypeOf(i)).Interface()) {
+	if i == nil || reflect.DeepEqual(i, reflect.Zero(reflect.TypeOf(i)).Interface()) {
 		return Fail(t, fmt.Sprintf("Should not be zero, but was %v", i), msgAndArgs...)
 	}
 	return true

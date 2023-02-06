@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -211,6 +212,223 @@ func TestEqual(t *testing.T) {
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("Equal(%#v, %#v)", c.expected, c.actual), func(t *testing.T) {
 			res := Equal(mockT, c.expected, c.actual)
+
+			if res != c.result {
+				t.Errorf("Equal(%#v, %#v) should return %#v: %s", c.expected, c.actual, c.result, c.remark)
+			}
+		})
+	}
+}
+
+type actualTestStruct []struct {
+	ID   string
+	Name string
+}
+
+func (a actualTestStruct) Len() int           { return len(a) }
+func (a actualTestStruct) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a actualTestStruct) Less(i, j int) bool { return strings.Compare(a[i].ID, a[j].ID) < 0 }
+
+type Space struct {
+	Id string
+}
+type User struct {
+	Id string
+}
+type GroupUser struct {
+	User User
+}
+type SpaceGroup struct {
+	Id     string
+	Name   string
+	Spaces []Space
+	Users  []GroupUser
+}
+
+func (s SpaceGroup) Len() int { return 2 }
+func (s SpaceGroup) Swap(_, _ int) {
+
+	sort.Slice(s.Spaces, func(i, j int) bool {
+		return strings.Compare(s.Spaces[i].Id, s.Spaces[j].Id) < 0
+	})
+	sort.Slice(s.Users, func(i, j int) bool {
+		return strings.Compare(s.Users[i].User.Id, s.Users[j].User.Id) < 0
+	})
+
+}
+func (s SpaceGroup) Less(i, j int) bool {
+	return true
+
+}
+
+func TestEqualWithSort(t *testing.T) {
+
+	mockT := new(testing.T)
+
+	cases := []struct {
+		expected interface{}
+		actual   interface{}
+		result   bool
+		remark   string
+	}{
+		{
+			expected: actualTestStruct{
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			actual: actualTestStruct{
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			result: true,
+		},
+		{
+			expected: SpaceGroup{
+				Id: "Spacegroup 1",
+				Spaces: []Space{
+					{
+						Id: "test-space-id-1",
+					},
+					{
+						Id: "test-space-id-2",
+					},
+					{
+						Id: "test-space-id-4",
+					},
+					{
+						Id: "test-space-id-88",
+					},
+				},
+				Users: []GroupUser{
+					{
+						User: User{
+							Id: "test-user-id-1",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-2",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-4",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-88",
+						},
+					},
+				},
+			},
+			actual: SpaceGroup{
+				Id: "Spacegroup 1",
+				Spaces: []Space{
+					{
+						Id: "test-space-id-4",
+					},
+					{
+						Id: "test-space-id-2",
+					},
+					{
+						Id: "test-space-id-1",
+					},
+					{
+						Id: "test-space-id-88",
+					},
+				},
+				Users: []GroupUser{
+					{
+						User: User{
+							Id: "test-user-id-4",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-2",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-1",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-88",
+						},
+					},
+				},
+			},
+			result: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("Equal(%#v, %#v)", c.expected, c.actual), func(t *testing.T) {
+			res := EqualWithSort(mockT, c.expected, c.actual)
+
+			if res != c.result {
+				t.Errorf("Equal(%#v, %#v) should return %#v: %s", c.expected, c.actual, c.result, c.remark)
+			}
+		})
+	}
+}
+
+func TestEqualWithSortNoSortInterface(t *testing.T) {
+	type myType string
+
+	mockT := new(testing.T)
+	var m map[string]interface{}
+
+	cases := []struct {
+		expected interface{}
+		actual   interface{}
+		result   bool
+		remark   string
+	}{
+		{"Hello World", "Hello World", true, ""},
+		{123, 123, true, ""},
+		{123.5, 123.5, true, ""},
+		{[]byte("Hello World"), []byte("Hello World"), true, ""},
+		{nil, nil, true, ""},
+		{int32(123), int32(123), true, ""},
+		{uint64(123), uint64(123), true, ""},
+		{myType("1"), myType("1"), true, ""},
+		{&struct{}{}, &struct{}{}, true, "pointer equality is based on equality of underlying value"},
+
+		// Not expected to be equal
+		{m["bar"], "something", false, ""},
+		{myType("1"), myType("2"), false, ""},
+
+		// A case that might be confusing, especially with numeric literals
+		{10, uint(10), false, ""},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("Equal(%#v, %#v)", c.expected, c.actual), func(t *testing.T) {
+			res := EqualWithSort(mockT, c.expected, c.actual)
 
 			if res != c.result {
 				t.Errorf("Equal(%#v, %#v) should return %#v: %s", c.expected, c.actual, c.result, c.remark)
