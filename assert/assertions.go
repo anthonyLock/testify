@@ -390,6 +390,45 @@ func EqualWithSort(t TestingT, expected, actual interface{}, msgAndArgs ...inter
 
 }
 
+// Equal asserts that two objects are equal.
+//
+//	assert.Equal(t, 123, 123)
+//
+// Pointer variable equality is determined based on the equality of the
+// referenced values (as opposed to the memory addresses). Function equality
+// cannot be determined and will always fail.
+// if the actual response can be sorted do so.
+func EqualSortOrElementsMatch(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+	if h, ok := t.(tHelper); ok {
+		h.Helper()
+	}
+	if err := validateEqualArgs(expected, actual); err != nil {
+		return Fail(t, fmt.Sprintf("Invalid operation: %#v == %#v (%s)",
+			expected, actual, err), msgAndArgs...)
+	}
+
+	var actualToTest interface{}
+	actualSort, ok := actual.(sort.Interface)
+	if ok {
+		sort.Sort(actualSort)
+		actualToTest = actualSort
+	} else if isLists(expected, actual) {
+		return ElementsMatch(t, expected, actual, msgAndArgs...)
+	} else {
+		actualToTest = actual
+	}
+	if !ObjectsAreEqual(expected, actualToTest) {
+		diff := diff(expected, actual)
+		expected, actual = formatUnequalValues(expected, actual)
+		return Fail(t, fmt.Sprintf("Not equal: \n"+
+			"expected: %s\n"+
+			"actual  : %s%s", expected, actual, diff), msgAndArgs...)
+	}
+
+	return true
+
+}
+
 // validateEqualArgs checks whether provided arguments can be safely used in the
 // Equal/NotEqual functions.
 func validateEqualArgs(expected, actual interface{}) error {
@@ -996,6 +1035,18 @@ func isList(t TestingT, list interface{}, msgAndArgs ...interface{}) (ok bool) {
 	if kind != reflect.Array && kind != reflect.Slice {
 		return Fail(t, fmt.Sprintf("%q has an unsupported type %s, expecting array or slice", list, kind),
 			msgAndArgs...)
+	}
+	return true
+}
+
+func isLists(listA, listB interface{}) (ok bool) {
+	kindA := reflect.TypeOf(listA).Kind()
+	if kindA != reflect.Array && kindA != reflect.Slice {
+		return false
+	}
+	kindB := reflect.TypeOf(listB).Kind()
+	if kindB != reflect.Array && kindB != reflect.Slice {
+		return false
 	}
 	return true
 }

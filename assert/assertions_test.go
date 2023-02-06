@@ -396,6 +396,151 @@ func TestEqualWithSort(t *testing.T) {
 	}
 }
 
+func TestEqualSortOrElementsMatch(t *testing.T) {
+
+	mockT := new(testing.T)
+
+	cases := []struct {
+		expected interface{}
+		actual   interface{}
+		result   bool
+		remark   string
+	}{
+		{
+			expected: actualTestStruct{
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			actual: actualTestStruct{
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			result: true,
+		},
+		{
+			expected: SpaceGroup{
+				Id: "Spacegroup 1",
+				Spaces: []Space{
+					{
+						Id: "test-space-id-1",
+					},
+					{
+						Id: "test-space-id-2",
+					},
+					{
+						Id: "test-space-id-4",
+					},
+					{
+						Id: "test-space-id-88",
+					},
+				},
+				Users: []GroupUser{
+					{
+						User: User{
+							Id: "test-user-id-1",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-2",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-4",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-88",
+						},
+					},
+				},
+			},
+			actual: SpaceGroup{
+				Id: "Spacegroup 1",
+				Spaces: []Space{
+					{
+						Id: "test-space-id-4",
+					},
+					{
+						Id: "test-space-id-2",
+					},
+					{
+						Id: "test-space-id-1",
+					},
+					{
+						Id: "test-space-id-88",
+					},
+				},
+				Users: []GroupUser{
+					{
+						User: User{
+							Id: "test-user-id-4",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-2",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-1",
+						},
+					},
+					{
+						User: User{
+							Id: "test-user-id-88",
+						},
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			actual:   "something",
+			expected: "somethingElse",
+			result:   false,
+		},
+		{
+			actual:   []string{"something", "somethingElse"},
+			expected: []string{"somethingElse", "something"},
+			result:   true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("Equal(%#v, %#v)", c.expected, c.actual), func(t *testing.T) {
+			res := EqualSortOrElementsMatch(mockT, c.expected, c.actual)
+
+			if res != c.result {
+				t.Errorf("Equal(%#v, %#v) should return %#v: %s", c.expected, c.actual, c.result, c.remark)
+			}
+		})
+	}
+}
+
 func TestEqualWithSortNoSortInterface(t *testing.T) {
 	type myType string
 
