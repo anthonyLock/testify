@@ -541,6 +541,70 @@ func TestEqualSortOrElementsMatch(t *testing.T) {
 	}
 }
 
+func TestEqualSortOrElementsMatchErrorMessage(t *testing.T) {
+
+	cases := []struct {
+		expected interface{}
+		actual   interface{}
+		result   bool
+		remark   string
+		want     string
+	}{
+
+		{
+			actual:   []string{"somethindddddg", "somethingElse"},
+			expected: []string{"somethingElse", "something"},
+			want:     "Hello world",
+		},
+		{
+			expected: []struct {
+				ID   string
+				Name string
+			}{
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			actual: []struct {
+				ID   string
+				Name string
+			}{
+				{
+					ID:   "test-id-3",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-1",
+					Name: "test name",
+				},
+				{
+					ID:   "test-id-55",
+					Name: "test name",
+				},
+			},
+			want: "Hello world",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("Equal(%#v, %#v)", c.expected, c.actual), func(t *testing.T) {
+			mockT := &bufferT{}
+
+			EqualSortOrElementsMatch(mockT, c.expected, c.actual)
+			Regexp(t, regexp.MustCompile(c.want), mockT.buf.String(), "Case %d", i)
+		})
+	}
+}
+
 func TestEqualWithSortNoSortInterface(t *testing.T) {
 	type myType string
 
@@ -1279,7 +1343,7 @@ func TestDiffLists(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			actualExtraA, actualExtraB := diffLists(test.listA, test.listB)
+			actualExtraA, actualExtraB, _, _, _ := diffLists(test.listA, test.listB)
 			Equal(t, test.extraA, actualExtraA, "extra A does not match for listA=%v listB=%v",
 				test.listA, test.listB)
 			Equal(t, test.extraB, actualExtraB, "extra B does not match for listA=%v listB=%v",

@@ -1020,13 +1020,13 @@ func ElementsMatch(t TestingT, listA, listB interface{}, msgAndArgs ...interface
 		return false
 	}
 
-	extraA, extraB := diffLists(listA, listB)
+	extraA, extraB, listARes, listBRes, diffList := diffLists(listA, listB)
 
 	if len(extraA) == 0 && len(extraB) == 0 {
 		return true
 	}
 
-	return Fail(t, formatListDiff(listA, listB, extraA, extraB), msgAndArgs...)
+	return Fail(t, formatListDiff(listARes, listBRes, extraA, extraB, diffList), msgAndArgs...)
 }
 
 // isList checks that the provided value is array or slice.
@@ -1054,7 +1054,7 @@ func isLists(listA, listB interface{}) (ok bool) {
 // diffLists diffs two arrays/slices and returns slices of elements that are only in A and only in B.
 // If some element is present multiple times, each instance is counted separately (e.g. if something is 2x in A and
 // 5x in B, it will be 0x in extraA and 3x in extraB). The order of items in both lists is ignored.
-func diffLists(listA, listB interface{}) (extraA, extraB []interface{}) {
+func diffLists(listA, listB interface{}) (extraA, extraB, listARes, listBRes []interface{}, diffIndexList []int) {
 	aValue := reflect.ValueOf(listA)
 	bValue := reflect.ValueOf(listB)
 
@@ -1065,6 +1065,8 @@ func diffLists(listA, listB interface{}) (extraA, extraB []interface{}) {
 	visited := make([]bool, bLen)
 	for i := 0; i < aLen; i++ {
 		element := aValue.Index(i).Interface()
+		listARes = append(listARes, element)
+
 		found := false
 		for j := 0; j < bLen; j++ {
 			if visited[j] {
@@ -1077,11 +1079,14 @@ func diffLists(listA, listB interface{}) (extraA, extraB []interface{}) {
 			}
 		}
 		if !found {
+			diffIndexList = append(diffIndexList, i)
 			extraA = append(extraA, element)
 		}
 	}
 
 	for j := 0; j < bLen; j++ {
+		listBRes = append(listBRes, bValue.Index(j).Interface())
+
 		if visited[j] {
 			continue
 		}
@@ -1091,22 +1096,32 @@ func diffLists(listA, listB interface{}) (extraA, extraB []interface{}) {
 	return
 }
 
-func formatListDiff(listA, listB interface{}, extraA, extraB []interface{}) string {
+func formatListDiff(listA, listB, extraA, extraB []interface{}, diffList []int) string {
 	var msg bytes.Buffer
 
-	msg.WriteString("elements differ")
-	if len(extraA) > 0 {
-		msg.WriteString("\n\nextra elements in list A:\n")
-		msg.WriteString(spewConfig.Sdump(extraA))
+	msg.WriteString("elements differ\n")
+	if len(listA) != len(listB) {
+		if len(extraA) > 0 {
+			msg.WriteString("\n\nextra elements in list A:\n")
+			msg.WriteString(spewConfig.Sdump(extraA))
+		}
+		if len(extraB) > 0 {
+			msg.WriteString("\n\nextra elements in list B:\n")
+			msg.WriteString(spewConfig.Sdump(extraB))
+		}
+		msg.WriteString("\n\nlistA:\n")
+		msg.WriteString(spewConfig.Sdump(listA))
+		msg.WriteString("\n\nlistB:\n")
+		msg.WriteString(spewConfig.Sdump(listB))
+	} else {
+		for index := range diffList {
+			diff := diff(listA[index], listB[index])
+			expected, actual := formatUnequalValues(listA[index], listB[index])
+			msg.WriteString(fmt.Sprintf("HELLLLOOOO WOOOORRRRLLLLDDD Index: %d, \nNot equal: \n"+
+				"expected: %s\n"+
+				"actual  : %s%s", index, expected, actual, diff))
+		}
 	}
-	if len(extraB) > 0 {
-		msg.WriteString("\n\nextra elements in list B:\n")
-		msg.WriteString(spewConfig.Sdump(extraB))
-	}
-	msg.WriteString("\n\nlistA:\n")
-	msg.WriteString(spewConfig.Sdump(listA))
-	msg.WriteString("\n\nlistB:\n")
-	msg.WriteString(spewConfig.Sdump(listB))
 
 	return msg.String()
 }
