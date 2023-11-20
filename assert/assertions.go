@@ -1114,12 +1114,12 @@ func formatListDiff(listA, listB, extraA, extraB []interface{}, diffList []int) 
 		msg.WriteString("\n\nlistB:\n")
 		msg.WriteString(spewConfig.Sdump(listB))
 	} else {
-		for index := range diffList {
-			diff := diff(listA[index], listB[index])
-			expected, actual := formatUnequalValues(listA[index], listB[index])
-			msg.WriteString(fmt.Sprintf("HELLLLOOOO WOOOORRRRLLLLDDD Index: %d, \nNot equal: \n"+
+		for _, indexVal := range diffList {
+			diff := diff(listA[indexVal], listB[indexVal])
+			expected, actual := formatUnequalValues(listA[indexVal], listB[indexVal])
+			msg.WriteString(fmt.Sprintf("Index: %d, \nNot equal: \n"+
 				"expected: %s\n"+
-				"actual  : %s%s", index, expected, actual, diff))
+				"actual  : %s%s", indexVal, expected, actual, diff))
 		}
 	}
 

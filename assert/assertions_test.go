@@ -552,11 +552,6 @@ func TestEqualSortOrElementsMatchErrorMessage(t *testing.T) {
 	}{
 
 		{
-			actual:   []string{"somethindddddg", "somethingElse"},
-			expected: []string{"somethingElse", "something"},
-			want:     "Hello world",
-		},
-		{
 			expected: []struct {
 				ID   string
 				Name string
@@ -566,7 +561,7 @@ func TestEqualSortOrElementsMatchErrorMessage(t *testing.T) {
 					Name: "test name",
 				},
 				{
-					ID:   "test-id-3",
+					ID:   "test-id-ll",
 					Name: "test name",
 				},
 				{
@@ -579,11 +574,11 @@ func TestEqualSortOrElementsMatchErrorMessage(t *testing.T) {
 				Name string
 			}{
 				{
-					ID:   "test-id-3",
+					ID:   "test-id-1",
 					Name: "test name",
 				},
 				{
-					ID:   "test-id-1",
+					ID:   "test-id-564",
 					Name: "test name",
 				},
 				{
